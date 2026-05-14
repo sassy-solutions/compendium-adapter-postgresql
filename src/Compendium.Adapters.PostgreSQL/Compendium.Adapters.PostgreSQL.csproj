@@ -5,13 +5,16 @@
     <RootNamespace>Compendium.Adapters.PostgreSQL</RootNamespace>
     <PackageId>Compendium.Adapters.PostgreSQL</PackageId>
     <Description>PostgreSQL Event Store adapter for Compendium Framework: JSONB event storage, optimistic concurrency, multi-tenancy support, schema auto-creation. Production-ready Event Sourcing with PostgreSQL.</Description>
+    <PackageTags>compendium;adapter;postgresql;eventsourcing</PackageTags>
+    <IsPackable>true</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Core\Compendium.Core\Compendium.Core.csproj" />
-    <ProjectReference Include="..\..\Abstractions\Compendium.Abstractions\Compendium.Abstractions.csproj" />
-    <ProjectReference Include="..\..\Infrastructure\Compendium.Infrastructure\Compendium.Infrastructure.csproj" />
-    <ProjectReference Include="..\..\Multitenancy\Compendium.Multitenancy\Compendium.Multitenancy.csproj" />
+    <!-- Compendium framework — consumed as published NuGets per ADR-0006. -->
+    <PackageReference Include="Compendium.Core" />
+    <PackageReference Include="Compendium.Abstractions" />
+    <PackageReference Include="Compendium.Infrastructure" />
+    <PackageReference Include="Compendium.Multitenancy" />
   </ItemGroup>
 
   <ItemGroup>
