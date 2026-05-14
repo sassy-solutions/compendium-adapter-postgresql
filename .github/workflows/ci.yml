@@ -30,9 +30,12 @@ jobs:
         run: dotnet build -c Release --no-restore
 
       - name: Test (with coverage)
+        # GitHub-hosted ubuntu-latest has Docker available — TestContainers spins up
+        # PostgreSQL via Testcontainers.PostgreSql. Integration tests are required for
+        # meaningful coverage on this repo: the bulk of the adapter is raw Npgsql
+        # I/O which can only be exercised against a real database.
         run: |
           dotnet test -c Release --no-build \
-            --filter "FullyQualifiedName!~IntegrationTests" \
             --logger "trx;LogFileName=test-results.trx" \
             --results-directory TestResults/ \
             --collect:"XPlat Code Coverage"
