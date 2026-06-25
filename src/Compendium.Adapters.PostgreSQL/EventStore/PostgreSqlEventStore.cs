@@ -604,7 +604,7 @@ public sealed class PostgreSqlEventStore : IEventStore, IAsyncDisposable
             SELECT COALESCE(MAX(version), 0)
             FROM {_options.TableName}
             WHERE stream_id = @StreamId
-            AND (@TenantId IS NULL OR tenant_id = @TenantId)";
+            AND (@TenantId IS NULL OR tenant_id = @TenantId OR tenant_id IS NULL)";
 
         return await connection.QuerySingleAsync<long>(
             versionSql,
@@ -635,7 +635,7 @@ public sealed class PostgreSqlEventStore : IEventStore, IAsyncDisposable
                 SELECT event_id, event_type, event_data, occurred_on, version
                 FROM {_options.TableName}
                 WHERE stream_id = @StreamId
-                AND (@TenantId IS NULL OR tenant_id = @TenantId)
+                AND (@TenantId IS NULL OR tenant_id = @TenantId OR tenant_id IS NULL)
                 ORDER BY version";
 
             var storedEvents = await connection.QueryAsync(
@@ -701,7 +701,7 @@ public sealed class PostgreSqlEventStore : IEventStore, IAsyncDisposable
                 FROM {_options.TableName}
                 WHERE stream_id = @StreamId
                 AND version > @FromVersion
-                AND (@TenantId IS NULL OR tenant_id = @TenantId)
+                AND (@TenantId IS NULL OR tenant_id = @TenantId OR tenant_id IS NULL)
                 ORDER BY version";
 
             var storedEvents = await connection.QueryAsync(
@@ -778,7 +778,7 @@ public sealed class PostgreSqlEventStore : IEventStore, IAsyncDisposable
                 SELECT event_id, event_type, event_data, occurred_on, version
                 FROM {_options.TableName}
                 WHERE stream_id = @StreamId
-                AND (@TenantId IS NULL OR tenant_id = @TenantId)
+                AND (@TenantId IS NULL OR tenant_id = @TenantId OR tenant_id IS NULL)
                 ORDER BY version
                 OFFSET @Skip ROWS
                 FETCH NEXT @Take ROWS ONLY";
@@ -859,7 +859,7 @@ public sealed class PostgreSqlEventStore : IEventStore, IAsyncDisposable
                 WHERE stream_id = @StreamId
                 AND version >= @FromVersion
                 AND version <= @ToVersion
-                AND (@TenantId IS NULL OR tenant_id = @TenantId)
+                AND (@TenantId IS NULL OR tenant_id = @TenantId OR tenant_id IS NULL)
                 ORDER BY version";
 
             var storedEvents = await connection.QueryAsync(
@@ -915,7 +915,7 @@ public sealed class PostgreSqlEventStore : IEventStore, IAsyncDisposable
                 SELECT event_id, event_type, event_data, occurred_on, version
                 FROM {_options.TableName}
                 WHERE stream_id = @StreamId
-                AND (@TenantId IS NULL OR tenant_id = @TenantId)
+                AND (@TenantId IS NULL OR tenant_id = @TenantId OR tenant_id IS NULL)
                 ORDER BY version DESC
                 LIMIT 1";
 
@@ -969,7 +969,7 @@ public sealed class PostgreSqlEventStore : IEventStore, IAsyncDisposable
                 SELECT COALESCE(MAX(version), 0)
                 FROM {_options.TableName}
                 WHERE stream_id = @StreamId
-                AND (@TenantId IS NULL OR tenant_id = @TenantId)";
+                AND (@TenantId IS NULL OR tenant_id = @TenantId OR tenant_id IS NULL)";
 
             var version = await connection.QuerySingleAsync<long>(
                 sql,
@@ -1011,7 +1011,7 @@ public sealed class PostgreSqlEventStore : IEventStore, IAsyncDisposable
                 SELECT EXISTS (
                     SELECT 1 FROM {_options.TableName}
                     WHERE stream_id = @StreamId
-                    AND (@TenantId IS NULL OR tenant_id = @TenantId)
+                    AND (@TenantId IS NULL OR tenant_id = @TenantId OR tenant_id IS NULL)
                     LIMIT 1
                 )";
 
@@ -1054,7 +1054,7 @@ public sealed class PostgreSqlEventStore : IEventStore, IAsyncDisposable
                     MAX(created_at) as last_event_date,
                     MAX(version) as current_version
                 FROM {_options.TableName}
-                WHERE (@TenantId IS NULL OR tenant_id = @TenantId)
+                WHERE (@TenantId IS NULL OR tenant_id = @TenantId OR tenant_id IS NULL)
                 GROUP BY stream_id";
 
             var results = await connection.QueryAsync(sql, new { TenantId = _tenantContext?.TenantId }).ConfigureAwait(false);
