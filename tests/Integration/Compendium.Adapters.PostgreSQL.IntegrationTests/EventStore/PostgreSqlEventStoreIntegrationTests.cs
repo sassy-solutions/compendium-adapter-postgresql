@@ -12,6 +12,7 @@ using Compendium.Adapters.PostgreSQL.EventStore;
 using Compendium.Core.Domain.Events;
 using Compendium.Core.EventSourcing;
 using Compendium.Core.Results;
+using Compendium.Multitenancy;
 using Dapper;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
@@ -32,6 +33,7 @@ public sealed class PostgreSqlEventStoreIntegrationTests : IAsyncLifetime
     private PostgreSqlContainer? _postgres;
     private PostgreSqlEventStore? _eventStore;
     private IEventDeserializer? _eventDeserializer;
+    private IOptions<PostgreSqlOptions>? _options;
 
     public async Task InitializeAsync()
     {
@@ -80,6 +82,7 @@ public sealed class PostgreSqlEventStoreIntegrationTests : IAsyncLifetime
 
     private async Task InitializeEventStore(IOptions<PostgreSqlOptions> options)
     {
+        _options = options;
         _eventDeserializer = Substitute.For<IEventDeserializer>();
         _eventDeserializer.TryDeserializeEvent(Arg.Any<string>(), Arg.Any<string>())
             .Returns(callInfo =>
@@ -429,6 +432,55 @@ public sealed class PostgreSqlEventStoreIntegrationTests : IAsyncLifetime
         result.Value.AggregateStatistics.Should().ContainKey(aggregateId2);
         result.Value.AggregateStatistics[aggregateId1].EventCount.Should().Be(3);
         result.Value.AggregateStatistics[aggregateId2].EventCount.Should().Be(2);
+    }
+
+    [RequiresDockerFact]
+    public async Task GetEventsAsync_WhenEventsHaveNullTenant_AndReaderHasTenantContext_StillReturnsEvents()
+    {
+        // Regression for the live "Application not found" / "Environment not found" deploy bug:
+        // events appended WITHOUT a tenant context (sagas, provisioning, background work) are
+        // stored with tenant_id = NULL. A later reader that DOES have a tenant context (an HTTP
+        // request, or the BuildAndDeploy background worker's NexusTenantScope) must still load
+        // that aggregate's stream — otherwise the per-aggregate read filter
+        // "(@TenantId IS NULL OR tenant_id = @TenantId)" silently drops the NULL-tenant rows
+        // ((<orgId> IS NULL OR NULL = <orgId>) => NULL => excluded) and every load 404s.
+        // The per-aggregate read must tolerate NULL tenant_id, matching PostgreSqlStreamingEventStore.
+
+        // Arrange: append with the default store (no tenant context => tenant_id NULL in the DB).
+        var aggregateId = Guid.NewGuid().ToString();
+        var events = Enumerable.Range(1, 2).Select(i => new TestEvent
+        {
+            EventId = Guid.NewGuid(),
+            AggregateId = aggregateId,
+            AggregateType = "TestAggregate",
+            OccurredOn = DateTimeOffset.UtcNow,
+            AggregateVersion = i,
+            Data = $"Event {i}"
+        }).Cast<IDomainEvent>().ToList();
+
+        (await _eventStore!.AppendEventsAsync(aggregateId, events, 0)).IsSuccess.Should().BeTrue();
+
+        // A second store that DOES carry a tenant context (simulates request/worker scope).
+        var tenantContext = Substitute.For<ITenantContext>();
+        tenantContext.TenantId.Returns(Guid.NewGuid().ToString());
+        await using var tenantScopedStore = new PostgreSqlEventStore(
+            _options!,
+            _eventDeserializer!,
+            Substitute.For<ILogger<PostgreSqlEventStore>>(),
+            tenantContext);
+
+        // Act
+        var eventsForTenantReader = await tenantScopedStore.GetEventsAsync(aggregateId);
+        var versionForTenantReader = await tenantScopedStore.GetVersionAsync(aggregateId);
+        var existsForTenantReader = await tenantScopedStore.ExistsAsync(aggregateId);
+
+        // Assert: NULL-tenant (un-stamped) events remain visible to a tenant-scoped reader.
+        eventsForTenantReader.IsSuccess.Should().BeTrue();
+        eventsForTenantReader.Value.Should().HaveCount(2);
+        versionForTenantReader.IsSuccess.Should().BeTrue();
+        versionForTenantReader.Value.Should().Be(2);
+        existsForTenantReader.IsSuccess.Should().BeTrue();
+        existsForTenantReader.Value.Should().BeTrue();
     }
 
     /// <summary>
