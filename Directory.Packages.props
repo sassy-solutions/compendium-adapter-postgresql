@@ -26,7 +26,9 @@
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="9.0.0" />
     <PackageVersion Include="Dapper" Version="2.1.35" />
-    <PackageVersion Include="Npgsql" Version="10.0.2" />
+    <!-- Pinned to 9.0.4 to match downstream consumers (Nexus) still on Npgsql 9.
+         Bumping to 10.x is a deliberate, separately-tested migration — not a hotfix rider. -->
+    <PackageVersion Include="Npgsql" Version="9.0.4" />
   </ItemGroup>
 
   <!-- Test stack (matches the framework's testing conventions exactly) -->
